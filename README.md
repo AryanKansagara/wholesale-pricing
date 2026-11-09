@@ -22,4 +22,4 @@ npm run dev
 npm test
 ```
 
-Live: https://wholesale-pricing.vercel.app
+Live: https://wholesale-pricing-eight.vercel.app
