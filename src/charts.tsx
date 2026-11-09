@@ -63,34 +63,34 @@ export function priceSteps(cost: CostBreakdown, prices: Prices, ch: ChannelResul
     { label: 'Packaging', value: cost.packaging, kind: 'cost' },
     { label: 'Labour', value: cost.labour, kind: 'cost' },
     { label: 'Overhead', value: cost.overhead, kind: 'cost' },
-    { label: 'Your margin', value: prices.wholesale - cost.total, kind: 'up' },
+    { label: 'Margin', value: prices.wholesale - cost.total, kind: prices.wholesale - cost.total < 0 ? 'fee' : 'up' },
     { label: 'Wholesale', value: prices.wholesale, kind: 'total' },
     { label: 'Retailer', value: prices.msrp - prices.wholesale, kind: 'up' },
     { label: 'MSRP', value: prices.msrp, kind: 'total' },
   ]
   const keep: Step[] = [
-    { label: 'Sale price', value: ch.price, kind: 'total' },
+    { label: 'Price', value: ch.price, kind: 'total' },
     { label: 'Commission', value: ch.commission, kind: 'fee' },
     { label: 'Processing', value: ch.processing, kind: 'fee' },
-    { label: 'Order fees', value: ch.orderFees + ch.unitFees + ch.ads, kind: 'fee' },
+    { label: 'Other fees', value: ch.orderFees + ch.unitFees + ch.ads, kind: 'fee' },
     { label: 'Fulfilment', value: ch.fulfilment, kind: 'fee' },
-    { label: 'Unit cost', value: ch.cost, kind: 'fee' },
-    { label: 'You keep', value: ch.contribution, kind: ch.contribution < 0 ? 'loss' : 'keep' },
+    { label: 'Cost', value: ch.cost, kind: 'fee' },
+    { label: 'Keep', value: ch.contribution, kind: ch.contribution < 0 ? 'loss' : 'keep' },
   ].filter(s => s.kind !== 'fee' || s.value > 0.004) as Step[]
   return { build, keep }
 }
 
 /** Waterfall in one SVG. `onDragCost` makes the cost columns draggable (vertical drag scales the cost). */
-export function Waterfall({ cost, prices, ch, onDragCost, height = 300, compact }: {
+export function Waterfall({ cost, prices, ch, onDragCost, height = 440, compact }: {
   cost: CostBreakdown; prices: Prices; ch: ChannelResult; onDragCost?: (dy: number) => void; height?: number; compact?: boolean
 }) {
   const { build, keep } = priceSteps(cost, prices, ch)
   const all = [...build, ...keep]
   const top = Math.max(prices.msrp, ch.price, cost.total) * 1.08
   const bottom = Math.min(0, ch.contribution) * 1.15
-  const W = 100 * all.length + 40, H = height, padT = 28, padB = 44
+  const colW = 80, barW = compact ? 50 : 48
+  const W = colW * all.length + 60, H = height, padT = 40, padB = 40
   const y = (v: number) => padT + (top - v) / (top - bottom) * (H - padT - padB)
-  const colW = 100, barW = compact ? 64 : 58
   const drag = useRef<{ y: number } | null>(null)
 
   let run = 0
@@ -111,7 +111,7 @@ export function Waterfall({ cost, prices, ch, onDragCost, height = 300, compact 
           onPointerDown={isCost && onDragCost ? e => { (e.target as Element).setPointerCapture(e.pointerId); drag.current = { y: e.clientY } } : undefined}
           onPointerMove={isCost && onDragCost ? e => { if (!drag.current) return; const rect = (e.currentTarget.ownerSVGElement!).getBoundingClientRect(); const scale = (top - bottom) / (rect.height * (H - padT - padB) / H); onDragCost((drag.current.y - e.clientY) * scale); drag.current = { y: e.clientY } } : undefined}
           onPointerUp={() => { drag.current = null }} />
-        <text className="wf-val" x={x + colW / 2} y={top_ - 7} textAnchor="middle">{s.kind === 'fee' ? '−' : ''}{fmtUsd(Math.abs(s.value))}</text>
+        <text className="wf-val" x={x + colW / 2} y={top_ - 7} textAnchor="middle">{s.kind === 'fee' || s.kind === 'loss' ? '−' : ''}{fmtUsd(Math.abs(s.value))}</text>
         <text className="wf-label" x={x + colW / 2} y={H - padB + 18} textAnchor="middle">{s.label}</text>
         {i < all.length - 1 && s.kind !== 'keep' && s.kind !== 'loss' && i !== build.length - 1 && (
           <line className="wf-link" x1={x + (colW + barW) / 2} x2={x + colW + (colW - barW) / 2 + (i + 1 === build.length ? 20 : 0)} y1={y(run)} y2={y(run)} />
@@ -124,8 +124,8 @@ export function Waterfall({ cost, prices, ch, onDragCost, height = 300, compact 
     <svg className="waterfall" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Price waterfall: unit cost ${fmtUsd(cost.total)}, wholesale ${fmtUsd(prices.wholesale)}, MSRP ${fmtUsd(prices.msrp)}; on ${CHANNEL_LABEL[ch.channel]} you keep ${fmtUsd(ch.contribution)} a unit.`}>
       <line className="wf-zero" x1={10} x2={W - 10} y1={y(0)} y2={y(0)} />
       <line className="wf-split" x1={split} x2={split} y1={8} y2={H - 8} />
-      <text className="wf-head" x={20} y={14}>Build the price</text>
-      <text className="wf-head" x={split + 12} y={14}>{CHANNEL_LABEL[ch.channel]}: what you keep</text>
+      <text className="wf-head" x={20} y={16}>Build the price</text>
+      <text className="wf-head" x={split + 12} y={16}>{CHANNEL_LABEL[ch.channel]}: what you keep</text>
       {bars}
     </svg>
   )

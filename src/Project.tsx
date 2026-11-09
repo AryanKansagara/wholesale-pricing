@@ -95,6 +95,7 @@ function Overview({ p, update }: TabProps) {
   const a = useAnalysis(p)!
   const [open, setOpen] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'loss' | 'warn'>('all')
+  const [allFlags, setAllFlags] = useState(false)
   const chans = CHANNELS.filter(c => p.settings.fees[c].enabled)
   const issues = useMemo(() => a.results.flatMap(r => r.issues).sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity]), [a])
   if (!p.products.length) return (
@@ -120,8 +121,9 @@ function Overview({ p, update }: TabProps) {
         <details className="panel issues-panel" open={issues.some(i => i.severity === 'loss')}>
           <summary><b>{issues.filter(i => i.severity === 'loss').length} money-losing, {issues.filter(i => i.severity === 'warn').length} warnings, {issues.filter(i => i.severity === 'info').length} notes</b><span className="muted small">MAP, markup, margin and MOQ checks</span></summary>
           <ul className="flags">
-            {issues.slice(0, 40).map((i, k) => <li key={k} className={i.severity}><button type="button" className="linkish mono" onClick={() => setOpen(p.products.find(x => x.sku === i.sku)!.id)}>{i.sku}</button> {i.message}</li>)}
+            {issues.slice(0, allFlags ? 200 : 6).map((i, k) => <li key={k} className={i.severity}><button type="button" className="linkish mono" onClick={() => setOpen(p.products.find(x => x.sku === i.sku)!.id)}>{i.sku}</button> {i.message}</li>)}
           </ul>
+          {issues.length > 6 && <button type="button" className="linkish small" onClick={() => setAllFlags(v => !v)}>{allFlags ? 'Show fewer' : `Show all ${issues.length}`}</button>}
         </details>
       )}
 
@@ -166,7 +168,7 @@ function ProductDetail({ r, p, update }: { r: ProductResult; p: Project; update:
       <div className="seg-control scroll" role="radiogroup" aria-label="Channel">
         {r.channels.map(c => <button key={c.channel} type="button" role="radio" aria-checked={c.channel === ch} className={c.channel === ch ? 'on' : ''} onClick={() => setCh(c.channel)}>{CHANNEL_LABEL[c.channel]}</button>)}
       </div>
-      {sel && <Waterfall cost={r.cost} prices={r.prices} ch={sel} height={260} compact />}
+      {sel && <Waterfall cost={r.cost} prices={r.prices} ch={sel} height={380} compact />}
       {r.issues.length > 0 && <ul className="flags">{r.issues.map((i, k) => <li key={k} className={i.severity}>{i.message}</li>)}</ul>}
       <div className="detail-grid">
         <label className="field"><span>Wholesale</span><NumInput label="Wholesale price" prefix="$" value={pr.wholesale} onChange={v => set({ wholesale: v })} /></label>

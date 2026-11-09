@@ -386,7 +386,7 @@ input[type='range'] { min-height: 0; padding: 0; border: 0; width: 100%; backgro
 
 /* ---------- Landing ---------- */
 .hero { padding: 56px 24px 40px; background: linear-gradient(180deg, var(--cream), var(--bg)); border-bottom: 1px solid var(--line); }
-.hero-grid { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 48px; align-items: center; }
+.hero-grid { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: minmax(0, .82fr) minmax(0, 1.18fr); gap: 48px; align-items: center; }
 .hero h1 { font-size: clamp(42px, 5.4vw, 70px); margin-bottom: 20px; }
 .lede { font-size: 19px; color: var(--ink-2); max-width: 560px; }
 .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin: 26px 0 12px; }
@@ -434,9 +434,9 @@ input[type='range'] { min-height: 0; padding: 0; border: 0; width: 100%; backgro
 .wf-col.draggable:hover .wf-bar { filter: brightness(.92); stroke: var(--ink-strong); stroke-width: 1.5; }
 .wf-col { animation: rise-in .5s var(--ease) both; animation-delay: calc(var(--i) * 40ms); }
 @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
-.wf-val { font: 600 13px/1 var(--font-body); fill: var(--ink-strong); font-variant-numeric: tabular-nums; }
-.wf-label { font: 400 12px/1 var(--font-body); fill: var(--ink-3); }
-.wf-head { font: 500 11px/1 var(--font-body); fill: var(--ink-3); text-transform: uppercase; letter-spacing: .1em; }
+.wf-val { font: 600 14px/1 var(--font-body); fill: var(--ink-strong); font-variant-numeric: tabular-nums; }
+.wf-label { font: 400 14px/1 var(--font-body); fill: var(--ink-3); }
+.wf-head { font: 500 13px/1 var(--font-body); fill: var(--ink-3); text-transform: uppercase; letter-spacing: .1em; }
 .wf-link { stroke: var(--ink-3); stroke-dasharray: 3 3; stroke-width: 1; }
 .wf-zero { stroke: var(--line-2); }
 .wf-split { stroke: var(--line); stroke-width: 1; }
@@ -604,11 +604,14 @@ td.neg { color: var(--bad); font-weight: 600; }
 .sheet-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #000; padding-bottom: 10px; }
 .sheet-head h2 { font: 400 30px/1 var(--font-serif); margin: 0; }
 .sheet-head span { font-size: 12px; color: #6c6a6a; }
+.sheet-page.flow { min-height: 0; }
+.sheet-group h3 { font: 500 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .12em; color: #6c6a6a; margin: 6px 0 14px; }
 .sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 18px; }
 .tile { display: grid; gap: 4px; font-size: 13px; break-inside: avoid; }
+
 .tile b { font-weight: 600; color: #000; }
 .tile .mono { font-size: 11px; color: #6c6a6a; }
-.swatch { aspect-ratio: 4 / 5; border-radius: 4px; background: linear-gradient(160deg, hsl(var(--h) 28% 88%), hsl(calc(var(--h) + 30) 22% 74%)); display: grid; place-items: center; margin-bottom: 6px; }
+.swatch { aspect-ratio: 1; border-radius: 4px; background: linear-gradient(160deg, hsl(var(--h) 28% 88%), hsl(calc(var(--h) + 30) 22% 74%)); display: grid; place-items: center; margin-bottom: 6px; }
 .swatch span { font: 400 40px/1 var(--font-serif); color: rgba(0, 0, 0, .35); }
 .tile-prices { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #e4e2df; padding-top: 6px; margin-top: 2px; }
 .tile-prices b { color: #000; }
@@ -631,6 +634,7 @@ td.neg { color: var(--bad); font-weight: 600; }
   .no-print, .toasts, .header, .footer { display: none !important; }
   .print-shell { background: #fff; padding: 0; }
   .sheet-page { box-shadow: none; margin: 0; width: auto; min-height: 100vh; break-after: page; }
+  .sheet-page.flow { min-height: 0; }
   .sheet-page:last-child { break-after: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -649,7 +653,9 @@ td.neg { color: var(--bad); font-weight: 600; }
   .nav.open { display: flex; }
   .nav a { padding: 12px; }
   .onboard, .quotes, .strategy-cards, .action-cards { grid-template-columns: 1fr; }
-  .sheet-grid { grid-template-columns: 1fr 1fr; }
+  .sheet-page.flow { min-height: 0; }
+.sheet-group h3 { font: 500 12px/1 var(--font-body); text-transform: uppercase; letter-spacing: .12em; color: #6c6a6a; margin: 6px 0 14px; }
+.sheet-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 600px) {
   .hide-sm { display: none !important; }
@@ -684,3 +690,4 @@ td.neg { color: var(--bad); font-weight: 600; }
   .cover h1 { font-size: 44px; }
   .snap-list form input { min-width: 0; }
 }
+td.mono, td .mono { white-space: nowrap; }

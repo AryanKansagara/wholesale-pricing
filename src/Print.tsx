@@ -3,6 +3,7 @@ import { CHANNEL_LABEL, overheadPerUnit, type ProductResult } from './engine/mod
 import { useAnalysis, useProject } from './projectData.ts'
 import { fmtPct, fmtUsd, Link } from './ui.tsx'
 
+const initials = (n: string) => n.split(/\s+/).filter(w => /^[a-z0-9]/i.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('')
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 
 export default function PrintPage({ id, kind }: { id: string; kind: string }) {
@@ -33,7 +34,7 @@ function LineSheet({ p, results, season }: { p: P; results: ProductResult[]; sea
   return (
     <article className="sheet">
       <section className="sheet-page cover">
-        <div className="cover-top"><span className="cover-mark">{p.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2)}</span><span>Wholesale · {season}</span></div>
+        <div className="cover-top"><span className="cover-mark">{initials(p.name)}</span><span>Wholesale · {season}</span></div>
         <div>
           <h1>{p.name}</h1>
           {p.brand.tagline && <p className="cover-tag">{p.brand.tagline}</p>}
@@ -48,22 +49,25 @@ function LineSheet({ p, results, season }: { p: P; results: ProductResult[]; sea
         </dl>
         <p className="cover-note">Prices in USD. MSRP is the suggested retail price; we sell at MSRP on our own site and never below it. Also available on Faire.</p>
       </section>
-      {[...groups].map(([cat, rs]) => (
-        <section key={cat} className="sheet-page">
-          <header className="sheet-head"><h2>{cat}</h2><span>{p.name} · {season}</span></header>
-          <div className="sheet-grid">
-            {rs.map(r => (
-              <div key={r.product.id} className="tile">
-                <div className="swatch" style={{ ['--h' as string]: hue(r.product.name) }} aria-hidden="true"><span>{r.product.name.split(/\s+/).slice(0, 2).map(w => w[0]).join('')}</span></div>
-                <b>{r.product.name}</b>
-                <span className="mono">{r.product.sku}</span>
-                <div className="tile-prices"><span>Wholesale <b>{fmtUsd(r.prices.wholesale)}</b></span><span>MSRP <b>{fmtUsd(r.prices.msrp)}</b></span></div>
-                <span className="small">Case of {r.product.caseSize} · MOQ {r.product.moq}</span>
-              </div>
-            ))}
+      <section className="sheet-page flow">
+        <header className="sheet-head"><h2>The collection</h2><span>{p.name} · {season}</span></header>
+        {[...groups].map(([cat, rs]) => (
+          <div key={cat} className="sheet-group">
+            <h3>{cat}</h3>
+            <div className="sheet-grid">
+              {rs.map(r => (
+                <div key={r.product.id} className="tile">
+                  <div className="swatch" style={{ ['--h' as string]: hue(r.product.name) }} aria-hidden="true"><span>{initials(r.product.name)}</span></div>
+                  <b>{r.product.name}</b>
+                  <span className="mono">{r.product.sku}</span>
+                  <div className="tile-prices"><span>Wholesale <b>{fmtUsd(r.prices.wholesale)}</b></span><span>MSRP <b>{fmtUsd(r.prices.msrp)}</b></span></div>
+                  <span className="small">Case of {r.product.caseSize} · MOQ {r.product.moq}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
-      ))}
+        ))}
+      </section>
       <section className="sheet-page order-form">
         <header className="sheet-head"><h2>Order form</h2><span>{p.name} · {season}</span></header>
         <div className="form-lines">
