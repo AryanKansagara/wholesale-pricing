@@ -144,24 +144,27 @@ export function pricePoint(x: number, mode: Rounding, dir: 'up' | 'nearest' = 'u
 
 export interface Proposal { wholesale: number; msrp: number; note?: string }
 
+/** Wholesale from MSRP, rounded down to the cent so the retailer keeps at least the full markup ($15.99 / 2 = $7.99, not $8.00). */
+export const wholesaleFor = (msrp: number, markup: number) => markup > 0 ? Math.floor(msrp / markup * 100 + 1e-6) / 100 : msrp
+
 export function propose(p: Product, cost: number, s: Settings): Proposal {
   const st = s.strategy
   if (st.kind === 'anchor') {
     const anchor = p.competitorMsrp ?? p.dtcPrice ?? p.msrp
     if (!anchor) return { ...propose(p, cost, { ...s, strategy: { kind: 'keystone', multiple: 2 } }), note: 'No competitor price; fell back to keystone' }
     const msrp = pricePoint(anchor, s.rounding, 'nearest')
-    return { msrp, wholesale: r2(msrp / s.retailMarkup) }
+    return { msrp, wholesale: wholesaleFor(msrp, s.retailMarkup) }
   }
   const raw = st.kind === 'keystone' ? cost * st.multiple : cost / Math.max(0.01, 1 - st.target)
   const msrp = pricePoint(raw * s.retailMarkup, s.rounding, 'up')
   // Wholesale follows the rounded MSRP so retailers keep their markup exactly.
-  return { msrp, wholesale: r2(msrp / s.retailMarkup) }
+  return { msrp, wholesale: wholesaleFor(msrp, s.retailMarkup) }
 }
 
 export interface Prices { wholesale: number; msrp: number; source: 'current' | 'proposed' }
-export function effectivePrices(p: Product, prop: Proposal): Prices {
+export function effectivePrices(p: Product, prop: Proposal, markup = 2): Prices {
   if (p.wholesale && p.msrp) return { wholesale: p.wholesale, msrp: p.msrp, source: 'current' }
-  if (p.wholesale) return { wholesale: p.wholesale, msrp: r2(p.wholesale * 2), source: 'current' }
+  if (p.wholesale) return { wholesale: p.wholesale, msrp: r2(p.wholesale * markup), source: 'current' }
   return { wholesale: prop.wholesale, msrp: prop.msrp, source: 'proposed' }
 }
 
@@ -241,7 +244,7 @@ export function analyse(products: Product[], comps: Component[], s: Settings, ti
   return products.map(p => {
     const cost = unitCost(p, comps, s, tier)
     const proposal = propose(p, cost.total, s)
-    const prices = effectivePrices(p, proposal)
+    const prices = effectivePrices(p, proposal, s.retailMarkup)
     const channels = CHANNELS.filter(c => s.fees[c].enabled).map(c => channelResult(c, channelPrice(c, p, prices), cost.total, s.fees[c]))
     return { product: p, cost, proposal, prices, channels, issues: checks(p, prices, channels, s) }
   })

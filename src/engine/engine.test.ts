@@ -1,6 +1,7 @@
 import { test } from 'node:test'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
-import { analyse, channelResult, checks, compareSnapshots, orderEconomics, pricePoint, propose, snapshotRows, unitCost, type Component, type Product, type Settings } from './model.ts'
+import { analyse, channelResult, effectivePrices, wholesaleFor, checks, compareSnapshots, orderEconomics, pricePoint, propose, snapshotRows, unitCost, type Component, type Product, type Settings } from './model.ts'
 import { defaultSettings } from './fees.ts'
 import { detectKind, guessMapping, parseCsv, parseMoney, toCsv, validate } from './csv.ts'
 import { fairePriceCsv, mergeImport, shopifyPriceCsv } from './catalog.ts'
@@ -63,7 +64,7 @@ test('target margin strategy never undershoots the target after rounding', () =>
 test('competitor anchor uses the competitor MSRP, falling back to keystone', () => {
   const s = S({ strategy: { kind: 'anchor' }, rounding: 'whole', retailMarkup: 2.2 })
   const p = propose(P({ competitorMsrp: 27.6 }), 5, s)
-  assert.equal(p.msrp, 28); close(p.wholesale, 12.73)
+  assert.equal(p.msrp, 28); close(p.wholesale, 12.72) // rounded down: 28 / 12.72 keeps the 2.2x markup
   const f = propose(P(), 5, s)
   assert.match(f.note!, /keystone/)
   assert.equal(f.msrp, 22)
@@ -168,9 +169,9 @@ test('format detection recognises Shopify, Etsy, Faire, cost sheets and BOMs', (
 test('Shopify import fills variant titles, skips image rows and reports bad lines', () => {
   const t = parseCsv('Handle,Title,Variant SKU,Variant Price,Variant Compare At Price,Cost per item\nfig,Fig candle,FIG-8,34,,8.5\nfig,,FIG-4,14,,\nfig,,,,,\nmug,Mug,MUG,abc,,\nx,X,,5,,\n')
   const v = validate(t, 'shopify', guessMapping(t[0], 'shopify'))
-  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.name]), [['FIG-8', 'Fig candle'], ['FIG-4', 'Fig candle']])
+  // A variant without a SKU (very common in real exports) is keyed by its handle.
+  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.name]), [['FIG-8', 'Fig candle'], ['FIG-4', 'Fig candle'], ['x', 'X']])
   assert.ok(v.issues.some(i => i.line === 5 && /not a number/.test(i.message)))
-  assert.ok(v.issues.some(i => i.line === 6 && /Missing SKU/.test(i.message)))
 })
 
 test('validation reports unmapped required columns and duplicates', () => {
@@ -218,4 +219,72 @@ test('snapshot compare finds cost changes, added SKUs and fee changes', () => {
   assert.ok(fig.cm.faireNew![1]! < fig.cm.faireNew![0]!)
   assert.deepEqual(d.fees.map(f => [f.channel, f.field]), [['faireNew', 'commission']])
   assert.deepEqual(d.labour, [20, 22])
+})
+
+// ---- Real-layout fixtures (headers copied from real Shopify and Etsy files; products invented) ----
+const fixture = (name: string) => parseCsv(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'))
+const load = (name: string) => { const t = fixture(name); const kind = detectKind(t[0]); return { t, kind, v: validate(t, kind, guessMapping(t[0], kind)) } }
+
+test('legacy Shopify export: blank variant SKUs keyed by handle and option, image and gift card rows skipped', () => {
+  const { kind, v } = load('shopify-legacy-export.csv')
+  assert.equal(kind, 'shopify')
+  assert.equal(v.issues.length, 0)
+  assert.equal(v.skipped, 2)
+  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.price, r.values.cost ?? null]), [['black-fig-candle-8-oz', 34, 7.85], ['black-fig-candle-4-oz-tin', 14, 4.1], ['EW-MATCH', 8, null]])
+  assert.equal(v.rows[1].values.optionName, 'Size') // carried down from the first row of the handle
+})
+
+test('2024 Shopify template (URL handle, SKU, Price, Compare-at price) is read as Shopify, not Etsy', () => {
+  const { kind, v } = load('shopify-2024-export.csv')
+  assert.equal(kind, 'shopify')
+  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.handle, r.values.price, r.values.msrp ?? null, r.values.cost]), [
+    ['KC-MUG-OAT', 'oatmeal-speckle-mug', 46, null, 21.4], ['KC-MUG-SEA', 'oatmeal-speckle-mug', 48, 52, 23.1], ['bud-vase', 'bud-vase', 38, null, 14.75],
+  ])
+})
+
+test('Shopify variants round-trip: names carry the option, the price file keeps handle, title once and option values', () => {
+  const { kind, v } = load('shopify-legacy-export.csv')
+  let n = 0
+  const m = mergeImport([], [], kind, v.rows, S(), () => `id${n++}`)
+  assert.deepEqual(m.products.map(p => p.name), ['Black Fig Candle - 8 oz', 'Black Fig Candle - 4 oz tin', 'Cloche Matches'])
+  const out = parseCsv(shopifyPriceCsv(analyse(m.products, [], S())))
+  assert.deepEqual(out.slice(1).map(r => r.slice(0, 5)), [
+    ['black-fig-candle', 'Black Fig Candle', 'Size', '8 oz', 'black-fig-candle-8-oz'],
+    ['black-fig-candle', '', 'Size', '4 oz tin', 'black-fig-candle-4-oz-tin'],
+    ['cloche-matches', 'Cloche Matches', 'Title', 'Default Title', 'EW-MATCH'],
+  ])
+})
+
+test('Etsy listings download: uppercase headers, multi-line quoted descriptions, missing SKU from title', () => {
+  const { kind, v } = load('etsy-listings.csv')
+  assert.equal(kind, 'etsy')
+  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.price]), [['PF-CARD-BDAY', 6], ['PF-NB-A5', 19], ['BOTANICAL-STICKER-SHEET', 5]])
+  const m = mergeImport([], [], kind, v.rows, S(), () => 'x')
+  assert.equal(m.products[0].etsyPrice, 6)
+  assert.equal(m.products[0].dtcPrice, undefined)
+})
+
+test('wholesale is rounded down from MSRP so charm prices never break keystone', () => {
+  assert.equal(wholesaleFor(15.99, 2), 7.99)
+  assert.equal(wholesaleFor(32, 2), 16)
+  assert.equal(wholesaleFor(28, 2.2), 12.72)
+  const s = S({ rounding: 'charm' })
+  for (const cost of [0.61, 1.2, 2.75, 4.33]) {
+    const [r] = analyse([P({ materials: cost })], [], s)
+    assert.ok(r.prices.msrp / r.prices.wholesale >= 2, `${r.prices.msrp}/${r.prices.wholesale}`)
+    assert.ok(!r.issues.some(i => i.code === 'markup'))
+  }
+})
+
+test('a catalog with only wholesale gets MSRP from the project markup, not a fixed 2x', () => {
+  const pr = effectivePrices(P({ wholesale: 10 }), { wholesale: 0, msrp: 0 }, 2.5)
+  assert.deepEqual([pr.wholesale, pr.msrp, pr.source], [10, 25, 'current'])
+})
+
+test('Etsy contribution matches a hand calculation from the published fee schedule', () => {
+  // $34 candle, $10 cost: 6.5% transaction, 3% + $0.25 processing on a $38 order, $0.20 listing, 15% offsite ads on 12% of orders, $1.25 fulfilment.
+  const r = channelResult('etsy', 34, 10, defaultSettings().fees.etsy)
+  const hand = 34 - 34 * 0.065 - 34 * 0.03 - 0.25 * 34 / 38 - 0.20 - 34 * 0.15 * 0.12 - 1.25 - 10
+  close(r.contribution, hand)
+  close(r.contribution, 18.4843, 1e-3) // 34 - 2.21 - 1.02 - 0.22 - 0.20 - 0.61 - 1.25 - 10
 })

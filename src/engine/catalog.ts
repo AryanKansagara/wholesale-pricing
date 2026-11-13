@@ -2,7 +2,8 @@
 import { slug, toCsv, type Field, type ImportRow, type Kind } from './csv.ts'
 import { CHANNEL_LABEL, r2, type Component, type OrderEconomics, type Product, type ProductResult, type Settings } from './model.ts'
 
-export type CatalogProduct = Product & { handle?: string; optionName?: string; optionValue?: string }
+/** Shopify fields kept so the price update lands on the same product and variant: base title, Option1 name and value. */
+export type CatalogProduct = Product & { handle?: string; title?: string; optionName?: string; optionValue?: string }
 
 export interface MergeResult { products: CatalogProduct[]; components: Component[]; added: number; updated: number }
 
@@ -42,6 +43,11 @@ export function mergeImport(products: CatalogProduct[], components: Component[],
       continue
     }
     if (str(v.name)) p.name = str(v.name)!
+    if (kind === 'shopify') {
+      const opt = str(v.optionValue)
+      if (str(v.name)) p.title = str(v.name)
+      if (opt && opt !== 'Default Title') { p.optionName = str(v.optionName) ?? 'Option'; p.optionValue = opt; if (p.title) p.name = `${p.title} - ${opt}` }
+    }
     if (str(v.category)) p.category = str(v.category)
     if (str(v.handle)) p.handle = str(v.handle)
     if (kind === 'etsy') { if (num(v.price) !== undefined) p.etsyPrice = num(v.price) }
@@ -72,9 +78,14 @@ export function mergeImport(products: CatalogProduct[], components: Component[],
 /** Shopify product CSV in overwrite shape: Handle plus the price columns being changed. Columns checked 2026-11-08. */
 export function shopifyPriceCsv(results: ProductResult[]): string {
   const rows: (string | number)[][] = [['Handle', 'Title', 'Option1 Name', 'Option1 Value', 'Variant SKU', 'Variant Price', 'Variant Compare At Price', 'Cost per item']]
+  const seen = new Set<string>()
   for (const r of results) {
     const p = r.product as CatalogProduct
-    rows.push([p.handle ?? slug(p.name).toLowerCase(), p.name, p.optionName ?? 'Title', p.optionValue ?? 'Default Title', p.sku, r.prices.msrp.toFixed(2), '', r2(r.cost.total).toFixed(2)])
+    const handle = p.handle ?? slug(p.name).toLowerCase()
+    // Shopify takes the title from a handle's first row; later variant rows leave it blank.
+    const title = seen.has(handle) ? '' : p.title ?? p.name
+    seen.add(handle)
+    rows.push([handle, title, p.optionName ?? 'Title', p.optionValue ?? 'Default Title', p.sku, r.prices.msrp.toFixed(2), '', r2(r.cost.total).toFixed(2)])
   }
   return toCsv(rows)
 }

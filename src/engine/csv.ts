@@ -39,18 +39,19 @@ export const KIND_LABEL: Record<Kind, string> = {
   shopify: 'Shopify product export', etsy: 'Etsy listings export', faire: 'Faire product export', costsheet: 'Cost sheet', bom: 'Bill of materials', generic: 'Generic catalog CSV',
 }
 
-export type Field = 'sku' | 'name' | 'handle' | 'category' | 'price' | 'wholesale' | 'msrp' | 'cost' | 'materials' | 'packaging' | 'labourMinutes' | 'labourRate' | 'overhead' | 'moq' | 'caseSize' | 'competitorMsrp' | 'component' | 'qty' | 'unitCost' | 'unit' | 'componentKind'
+export type Field = 'sku' | 'name' | 'handle' | 'category' | 'price' | 'wholesale' | 'msrp' | 'cost' | 'materials' | 'packaging' | 'labourMinutes' | 'labourRate' | 'overhead' | 'moq' | 'caseSize' | 'competitorMsrp' | 'component' | 'qty' | 'unitCost' | 'unit' | 'componentKind' | 'optionName' | 'optionValue'
 
 export const FIELD_LABEL: Record<Field, string> = {
   sku: 'SKU', name: 'Product name', handle: 'Handle / group', category: 'Category', price: 'Retail price (your site)', wholesale: 'Wholesale price', msrp: 'MSRP / retail price',
   cost: 'Cost per item', materials: 'Materials ($/unit)', packaging: 'Packaging ($/unit)', labourMinutes: 'Labour minutes', labourRate: 'Labour rate ($/hr)', overhead: 'Overhead ($/unit)',
   moq: 'Minimum order qty', caseSize: 'Case size', competitorMsrp: 'Competitor MSRP', component: 'Component', qty: 'Quantity per unit', unitCost: 'Component unit cost', unit: 'Unit', componentKind: 'Material or packaging',
+  optionName: 'Option name', optionValue: 'Option value',
 }
 
 const SYN: Record<Field, string[]> = {
   sku: ['variant sku', 'sku', 'item sku', 'product sku', 'style number', 'style #'],
   name: ['title', 'product name (english)', 'product name', 'name', 'item', 'product'],
-  handle: ['handle', 'product token', 'listing id'],
+  handle: ['handle', 'url handle', 'product token', 'listing id'],
   category: ['type', 'product type', 'category', 'product category'],
   price: ['variant price', 'price', 'retail price (your site)', 'dtc price', 'website price'],
   wholesale: ['wholesale price (usd)', 'wholesale price', 'wholesale', 'usd unit wholesale price', 'wholesale_price'],
@@ -69,13 +70,16 @@ const SYN: Record<Field, string[]> = {
   unitCost: ['component cost', 'unit cost', 'cost per unit', 'cost'],
   unit: ['unit', 'uom'],
   componentKind: ['kind', 'type', 'component type'],
+  optionName: ['option1 name'],
+  optionValue: ['option1 value'],
 }
 
 const norm = (h: string) => h.toLowerCase().replace(/[*_]+/g, ' ').replace(/\s+/g, ' ').trim()
 
 export function detectKind(headers: string[]): Kind {
   const h = new Set(headers.map(norm))
-  if (h.has('handle') && (h.has('variant sku') || h.has('variant price'))) return 'shopify'
+  // Shopify's legacy export uses "Handle" and "Variant …" columns; the 2024 template uses "URL handle", "SKU" and "Price".
+  if ((h.has('handle') || h.has('url handle')) && (h.has('variant sku') || h.has('variant price') || h.has('sku') || h.has('price'))) return 'shopify'
   if (h.has('title') && h.has('price') && (h.has('currency code') || h.has('quantity') || h.has('tags')) && !h.has('handle')) return 'etsy'
   if ([...h].some(x => x.startsWith('wholesale price')) && [...h].some(x => x.startsWith('retail price') || x.includes('product name'))) return 'faire'
   if ([...h].some(x => x === 'component' || x === 'component name') && [...h].some(x => x.startsWith('qty') || x === 'quantity')) return 'bom'
@@ -84,7 +88,7 @@ export function detectKind(headers: string[]): Kind {
 }
 
 export const KIND_FIELDS: Record<Kind, Field[]> = {
-  shopify: ['sku', 'name', 'handle', 'category', 'price', 'msrp', 'cost'],
+  shopify: ['sku', 'name', 'handle', 'category', 'price', 'msrp', 'cost', 'optionName', 'optionValue'],
   etsy: ['sku', 'name', 'price'],
   faire: ['sku', 'name', 'wholesale', 'msrp', 'moq', 'caseSize'],
   costsheet: ['sku', 'name', 'materials', 'packaging', 'labourMinutes', 'labourRate', 'overhead', 'moq', 'caseSize', 'competitorMsrp'],
@@ -104,7 +108,7 @@ export function guessMapping(headers: string[], kind: Kind): Mapping {
   const used = new Set<number>()
   for (const f of KIND_FIELDS[kind]) {
     // Shopify's "Variant Compare At Price" is the closest thing it has to an MSRP.
-    const syn = kind === 'shopify' && f === 'msrp' ? ['variant compare at price'] : kind === 'shopify' && f === 'name' ? ['title'] : SYN[f]
+    const syn = kind === 'shopify' && f === 'msrp' ? ['variant compare at price', 'compare-at price'] : kind === 'shopify' && f === 'name' ? ['title'] : SYN[f]
     let idx = -1
     for (const s of syn) { idx = h.findIndex((x, i) => !used.has(i) && x === s); if (idx >= 0) break }
     if (idx < 0) for (const s of syn) { idx = h.findIndex((x, i) => !used.has(i) && x.startsWith(s)); if (idx >= 0) break }
@@ -133,7 +137,8 @@ export function validate(table: string[][], kind: Kind, map: Mapping): Validated
   const rows: ImportRow[] = []
   let skipped = 0
   const seen = new Map<string, number>()
-  let lastHandle = '', lastName = ''
+  let lastHandle = '', lastName = '', lastOption = ''
+  const giftCol = kind === 'shopify' ? (table[0] ?? []).map(norm).indexOf('gift card') : -1
   for (const f of REQUIRED[kind]) if (map[f] === undefined) issues.push({ line: 1, level: 'error', message: `No column mapped to ${FIELD_LABEL[f]}.` })
   if (issues.length) return { rows, issues, skipped: table.length - 1 }
   for (let i = 1; i < table.length; i++) {
@@ -151,12 +156,21 @@ export function validate(table: string[][], kind: Kind, map: Mapping): Validated
       } else values[f] = raw
     }
     // Shopify repeats the handle on variant rows and leaves the title blank.
+    // Option names also appear only on the first row, and many shops never set variant SKUs.
     if (kind === 'shopify') {
       const handle = String(values.handle ?? '')
-      if (handle && handle === lastHandle && !values.name) values.name = lastName
+      const same = !!handle && handle === lastHandle
+      if (same && !values.name) values.name = lastName
+      if (same && !values.optionName) values.optionName = lastOption
+      if (handle && !same) lastOption = ''
       if (handle) lastHandle = handle
       if (values.name) lastName = String(values.name)
-      if (!values.sku && !values.price) { skipped++; continue } // image-only rows
+      if (values.optionName) lastOption = String(values.optionName)
+      if (!values.sku && values.price === undefined) { skipped++; continue } // image-only rows
+      if (giftCol >= 0 && /^true$/i.test((r[giftCol] ?? '').trim())) { skipped++; continue } // gift cards have no unit cost
+      const opt = String(values.optionValue ?? '')
+      const variant = opt && opt !== 'Default Title' ? opt : ''
+      if (!values.sku && handle) values.sku = variant ? `${handle}-${variant.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}` : handle
     }
     if (kind === 'etsy' && !values.sku) values.sku = slug(String(values.name ?? `etsy-${line}`))
     if (bad) { skipped++; continue }
