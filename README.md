@@ -6,7 +6,7 @@ A pricing and line-sheet studio for small brands going wholesale on Faire and di
 
 ## Features
 
-- **Import** Shopify, Etsy and Faire product exports, cost sheets and bills of materials, with format detection, column mapping and a validation report with line numbers.
+- **Import** Shopify (legacy and 2024 CSV layouts), Etsy and Faire product exports (Faire's .xlsx read directly in the browser), cost sheets and bills of materials, with format detection, column mapping and a validation report with line numbers.
 - **Engine (tested):** unit cost roll-up (BOM, labour, overhead), keystone, target-margin or competitor-anchored pricing with price-point rounding, per-channel contribution margin (Shopify, Etsy, Faire first order, Faire reorder, Faire Direct, direct wholesale), first-order loss flags, MAP/MSRP checks, order-minimum and retailer lifetime value economics, and a wholesale-tier simulator.
 - **Actions:** printable line sheet with cover, grid and order form; Shopify and Faire price-update CSVs; a one-page pricing rationale.
 - **History:** dated snapshots with a compare view showing what cost or fee changes did to every margin.

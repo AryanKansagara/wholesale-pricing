@@ -6,6 +6,7 @@ import { defaultSettings } from './fees.ts'
 import { detectKind, guessMapping, parseCsv, parseMoney, toCsv, validate } from './csv.ts'
 import { fairePriceCsv, mergeImport, shopifyPriceCsv } from './catalog.ts'
 import { SAMPLES } from './sample.ts'
+import { readXlsx } from './xlsx.ts'
 
 const close = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`)
 const S = (p: Partial<Settings> = {}): Settings => ({ ...defaultSettings(), overheadMonthly: 0, ...p })
@@ -287,4 +288,18 @@ test('Etsy contribution matches a hand calculation from the published fee schedu
   const hand = 34 - 34 * 0.065 - 34 * 0.03 - 0.25 * 34 / 38 - 0.20 - 34 * 0.15 * 0.12 - 1.25 - 10
   close(r.contribution, hand)
   close(r.contribution, 18.4843, 1e-3) // 34 - 2.21 - 1.02 - 0.22 - 0.20 - 0.61 - 1.25 - 10
+})
+
+test('Faire .xlsx read natively: follows the workbook to the products sheet, rich-text headers, Excel float noise', async () => {
+  const b = readFileSync(new URL('./fixtures/faire-products.xlsx', import.meta.url))
+  const t = await readXlsx(b.buffer.slice(b.byteOffset, b.byteOffset + b.length))
+  assert.equal(t[0][0], 'Product Name (English)*')
+  assert.equal(detectKind(t[0]), 'faire')
+  const v = validate(t, 'faire', guessMapping(t[0], 'faire'))
+  assert.equal(v.issues.length, 0)
+  assert.deepEqual(v.rows.map(r => [r.values.sku, r.values.name, r.values.wholesale, r.values.msrp, r.values.moq, r.values.caseSize]), [
+    ['EW-08-FIG', 'Black Fig 8 oz candle', 16, 32, 4, 4], ['EW-08-CDR', 'Cedar & Smoke 8 oz candle', 16, 32, 4, 4],
+    ['EW-04-FIG', 'Black Fig travel tin', 7.1, 14, 6, 6], ['EW-DIF-100', 'Reed diffuser <100 ml>', 19, 38, 2, 2],
+  ])
+  await assert.rejects(readXlsx(new TextEncoder().encode('SKU,Name\nA,B').buffer), /Not an .xlsx/)
 })

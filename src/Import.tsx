@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { mergeImport } from './engine/catalog.ts'
 import { detectKind, FIELD_LABEL, guessMapping, KIND_FIELDS, KIND_LABEL, parseCsv, REQUIRED, validate, type Field, type Kind, type Mapping } from './engine/csv.ts'
 import type { TabProps } from './Project.tsx'
+import { readXlsx } from './engine/xlsx.ts'
 import { uuid } from './store.ts'
 import { download, fmtDate, go, Link, toast } from './ui.tsx'
 
@@ -22,13 +23,17 @@ export default function Import({ p, update }: TabProps) {
     const next: Pending[] = []
     for (const f of [...files]) {
       if (f.size > 20_000_000) { toast(`${f.name} is over 20 MB; split it first.`, { tone: 'error' }); continue }
-      if (!/\.(csv|tsv|txt)$/i.test(f.name)) { toast(`${f.name}: export as CSV (Faire's .xlsx: File → Save as CSV).`, { tone: 'error' }); continue }
+      if (/\.xlsx$/i.test(f.name)) {
+        try { next.push(prepTable(f.name, await readXlsx(await f.arrayBuffer()))) } catch (e) { toast(`${f.name}: ${(e as Error).message} Save it as CSV and try again.`, { tone: 'error' }) }
+        continue
+      }
+      if (!/\.(csv|tsv|txt)$/i.test(f.name)) { toast(`${f.name}: use a CSV or .xlsx file (old .xls and Numbers files: export as CSV).`, { tone: 'error' }); continue }
       next.push(prep(f.name, await f.text()))
     }
     setPending(x => [...x, ...next])
   }
-  const prep = (fileName: string, text: string): Pending => {
-    const table = parseCsv(text)
+  const prep = (fileName: string, text: string): Pending => prepTable(fileName, parseCsv(text))
+  const prepTable = (fileName: string, table: string[][]): Pending => {
     const kind = detectKind(table[0] ?? [])
     return { fileName, table, kind, map: guessMapping(table[0] ?? [], kind) }
   }
@@ -37,8 +42,8 @@ export default function Import({ p, update }: TabProps) {
     <div className="stack">
       <div className={`dropzone${over ? ' over' : ''}`} onDragOver={e => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)} onDrop={e => { e.preventDefault(); setOver(false); void add(e.dataTransfer.files) }}>
         <div className="drop-icon" aria-hidden="true" />
-        <p><b>Drop CSV files here</b>, or <label className="linkish">choose files<input type="file" accept=".csv,.tsv,.txt,text/csv" multiple hidden onChange={e => { if (e.target.files) void add(e.target.files); e.target.value = '' }} /></label></p>
-        <p className="muted small">Shopify product export, Etsy listings export, Faire product export, a cost sheet, a bill of materials or any catalog CSV. Several at once is fine: import the catalog first, then costs. Files are parsed in your browser; only the resulting catalog is kept.</p>
+        <p><b>Drop CSV or Excel (.xlsx) files here</b>, or <label className="linkish">choose files<input type="file" accept=".csv,.tsv,.txt,.xlsx,text/csv" multiple hidden onChange={e => { if (e.target.files) void add(e.target.files); e.target.value = '' }} /></label></p>
+        <p className="muted small">Shopify product export, Etsy listings export, Faire product export (the .xlsx as downloaded), a cost sheet, a bill of materials or any catalog CSV. Several at once is fine: import the catalog first, then costs. Files are parsed in your browser; only the resulting catalog is kept.</p>
         <p className="small">Templates: <button type="button" className="linkish" onClick={() => download('cost-sheet-template.csv', TEMPLATES['cost-sheet'])}>cost sheet</button> · <button type="button" className="linkish" onClick={() => download('bom-template.csv', TEMPLATES.bom)}>bill of materials</button> · <button type="button" className="linkish" onClick={() => download('catalog-template.csv', TEMPLATES.generic)}>catalog</button> · <Link href="/docs#exports">How to export from Shopify, Etsy and Faire</Link></p>
       </div>
       <details className="panel">

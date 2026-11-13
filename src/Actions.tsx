@@ -58,7 +58,7 @@ export default function Actions({ p, update, setS }: TabProps) {
           <h2>Faire price update</h2>
           <button type="button" className="btn primary sm" onClick={() => download(`${fileBase(p.name)}-faire-prices-${date}.csv`, faire)}>Download CSV</button>
         </div>
-        <p className="muted small">Wholesale, retail, minimum order quantity and case size by SKU, in the column names of Faire's bulk product sheet. Paste into the template from your brand portal (Products → Bulk edit), matching on SKU.</p>
+        <p className="muted small">Wholesale, retail, minimum order quantity and case size by SKU, in the column names of Faire's bulk product sheet. Faire only accepts uploads in its own .xlsx template, so copy these columns into the template from your brand portal (Products → Bulk edit), matching on SKU.</p>
         <Code code={faire.split('\n').slice(0, 8).join('\n')} label="CSV preview (first rows)" />
       </div>
 

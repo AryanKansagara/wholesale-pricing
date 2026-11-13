@@ -20,7 +20,13 @@ export default function Docs() {
           <li>Choose <b>All products</b> and <b>CSV for Excel, Numbers, or other spreadsheet programs</b> (plain CSV also works).</li>
           <li>Shopify downloads the file, or emails it for large catalogs. Drop it on the Import tab.</li>
         </ol>
-        <p>We read <code>Handle</code>, <code>Title</code>, <code>Variant SKU</code>, <code>Variant Price</code> (your site price), <code>Variant Compare At Price</code> and <code>Cost per item</code>. Variant rows inherit the product title; image-only rows are skipped.</p>
+        <p>Both Shopify layouts work: the long-running one (<code>Handle</code>, <code>Variant SKU</code>, <code>Variant Price</code>, <code>Variant Compare At Price</code>) and the 2024 template (<code>URL handle</code>, <code>SKU</code>, <code>Price</code>, <code>Compare-at price</code>). We also read <code>Title</code>, <code>Type</code>, <code>Option1 Name</code>/<code>Option1 Value</code> and <code>Cost per item</code>.</p>
+        <ul>
+          <li>Variant rows inherit the product title and option name; each variant becomes its own product, named like “Black Fig Candle - 4 oz tin”.</li>
+          <li>Many shops never fill in variant SKUs. Those variants are keyed by handle and option (<code>black-fig-candle-4-oz-tin</code>); use the same keys in your cost sheet, or add SKUs in Shopify first.</li>
+          <li>Image-only rows and gift cards are skipped. Compare-at price is read as MSRP, so a sale price below it shows up as a MAP warning.</li>
+        </ul>
+        <p className="muted small">Layouts checked {FEES_CHECKED} against Shopify's current product CSV template and exports from public Shopify sample stores (e.g. the shopifypartners/product-csvs repository on GitHub).</p>
       </section>
 
       <section id="etsy">
@@ -37,7 +43,7 @@ export default function Docs() {
         <ol>
           <li>In the Faire brand portal, open <b>Products</b>.</li>
           <li>Use <b>Bulk edit</b> (or <b>Export</b>) to download your product spreadsheet.</li>
-          <li>Faire gives you an Excel file: open it and <b>save as CSV</b> (File → Save As → CSV UTF-8), then import.</li>
+          <li>Faire gives you an Excel (.xlsx) file. Drop it on the Import tab as it is; the first sheet is read in your browser. A CSV saved from it works too.</li>
         </ol>
         <p>We read <code>Product Name (English)</code>, <code>SKU</code>, <code>Wholesale Price (USD)</code>, <code>Retail Price (USD)</code>, <code>Minimum Order Quantity</code> and <code>Case Size</code>, and tolerate the asterisks Faire puts on required columns.</p>
       </section>
@@ -72,7 +78,7 @@ export default function Docs() {
       <section id="exports">
         <h2>Export files</h2>
         <p><b>Shopify price update.</b> Columns <code>Handle, Title, Option1 Name, Option1 Value, Variant SKU, Variant Price, Variant Compare At Price, Cost per item</code>, matching Shopify's product CSV (checked {FEES_CHECKED}). Import with “Overwrite products with matching handles”. Price is set to MSRP so your site matches what stockists charge. Multi-variant products imported from Shopify keep their handle; check option values before overwriting.</p>
-        <p><b>Faire price update.</b> Columns <code>Product Name (English), SKU, Wholesale Price (USD), Retail Price (USD), Minimum Order Quantity, Case Size</code>. Paste into the bulk-edit template from your portal, matching rows by SKU.</p>
+        <p><b>Faire price update.</b> Columns <code>Product Name (English), SKU, Wholesale Price (USD), Retail Price (USD), Minimum Order Quantity, Case Size</code>. Faire's bulk upload only accepts its own .xlsx template with its columns unchanged, so this file is not uploaded directly: download the current template (or your product export) from the portal, then copy these columns into it, matching rows by SKU.</p>
         <p><b>Line sheet and rationale</b> are print pages: use your browser's print dialog and “Save as PDF”.</p>
       </section>
 
