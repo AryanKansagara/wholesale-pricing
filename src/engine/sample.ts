@@ -41,22 +41,23 @@ function candles(): SampleBrand {
 
 function ceramics(): SampleBrand {
   const s = defaultSettings()
-  Object.assign(s, { labourRate: 28, overheadMonthly: 1800, unitsPerMonth: 300, orderMinimum: 150, firstOrderValue: 320, reorderValue: 380, reorderRate: 0.5, strategy: { kind: 'margin', target: 0.5 } })
+  Object.assign(s, { labourRate: 28, overheadMonthly: 1500, unitsPerMonth: 300, orderMinimum: 150, firstOrderValue: 320, reorderValue: 380, reorderRate: 0.5, strategy: { kind: 'margin', target: 0.5 } })
   s.fees.etsy.enabled = false
   const components = [
     comp('clay', 'Stoneware clay', 0.95, 'lb'), comp('glaze', 'Glaze (dip)', 0.6, 'oz'), comp('fire', 'Kiln firing share', 0.85, 'piece'),
     comp('wrap', 'Honeycomb wrap', 0.45, 'each', 'packaging'), comp('box', 'Printed mug box', 1.4, 'each', 'packaging'), comp('plainbox', 'Plain kraft box', 0.55, 'each', 'packaging'),
   ]
+  // Labour is hands-on minutes per piece in batch production (throw, trim, handle, glaze, sand), not elapsed time.
   const pack = [{ componentId: 'wrap', qty: 1 }, { componentId: 'box', qty: 1 }]
   const products = prods('kc', [
-    { sku: 'KC-MUG-OAT', name: 'Oatmeal speckle mug', category: 'Drinkware', bom: [{ componentId: 'clay', qty: 1.1 }, { componentId: 'glaze', qty: 2 }, { componentId: 'fire', qty: 1 }, ...pack], labourMinutes: 38, wholesale: 22, msrp: 44, dtcPrice: 46, caseSize: 2, moq: 4, mixWeight: 4 },
-    { sku: 'KC-MUG-SEA', name: 'Seafoam drip mug', category: 'Drinkware', bom: [{ componentId: 'clay', qty: 1.1 }, { componentId: 'glaze', qty: 3 }, { componentId: 'fire', qty: 1 }, ...pack], labourMinutes: 44, wholesale: 24, msrp: 48, dtcPrice: 48, caseSize: 2, moq: 4, mixWeight: 3 },
-    { sku: 'KC-BWL-SM', name: 'Small serving bowl', category: 'Tableware', bom: [{ componentId: 'clay', qty: 1.6 }, { componentId: 'glaze', qty: 3 }, { componentId: 'fire', qty: 1.4 }, { componentId: 'wrap', qty: 2 }], labourMinutes: 50, wholesale: 32, msrp: 64, dtcPrice: 62, caseSize: 2, moq: 2, mixWeight: 2 },
-    { sku: 'KC-PLT-DIN', name: 'Dinner plate', category: 'Tableware', bom: [{ componentId: 'clay', qty: 2.4 }, { componentId: 'glaze', qty: 3.5 }, { componentId: 'fire', qty: 1.6 }, { componentId: 'wrap', qty: 2 }], labourMinutes: 55, wholesale: 38, msrp: 76, dtcPrice: 78, caseSize: 4, moq: 4, mixWeight: 1 },
-    { sku: 'KC-SPR', name: 'Spoon rest', category: 'Kitchen', bom: [{ componentId: 'clay', qty: 0.5 }, { componentId: 'glaze', qty: 1 }, { componentId: 'fire', qty: 0.5 }, { componentId: 'wrap', qty: 1 }], labourMinutes: 18, wholesale: 12, msrp: 24, dtcPrice: 24, caseSize: 4, moq: 4, mixWeight: 2 },
-    { sku: 'KC-BUD', name: 'Bud vase', category: 'Decor', bom: [{ componentId: 'clay', qty: 0.7 }, { componentId: 'glaze', qty: 1.5 }, { componentId: 'fire', qty: 0.7 }, ...pack], labourMinutes: 30, wholesale: 20, msrp: 40, dtcPrice: 38, caseSize: 2, moq: 2, mixWeight: 2 },
+    { sku: 'KC-MUG-OAT', name: 'Oatmeal speckle mug', category: 'Drinkware', bom: [{ componentId: 'clay', qty: 1.1 }, { componentId: 'glaze', qty: 2 }, { componentId: 'fire', qty: 1 }, ...pack], labourMinutes: 18, wholesale: 22, msrp: 44, dtcPrice: 46, caseSize: 2, moq: 4, mixWeight: 4 },
+    { sku: 'KC-MUG-SEA', name: 'Seafoam drip mug', category: 'Drinkware', bom: [{ componentId: 'clay', qty: 1.1 }, { componentId: 'glaze', qty: 3 }, { componentId: 'fire', qty: 1 }, ...pack], labourMinutes: 21, wholesale: 24, msrp: 48, dtcPrice: 48, caseSize: 2, moq: 4, mixWeight: 3 },
+    { sku: 'KC-BWL-SM', name: 'Small serving bowl', category: 'Tableware', bom: [{ componentId: 'clay', qty: 1.6 }, { componentId: 'glaze', qty: 3 }, { componentId: 'fire', qty: 1.4 }, { componentId: 'wrap', qty: 2 }], labourMinutes: 24, wholesale: 32, msrp: 64, dtcPrice: 62, caseSize: 2, moq: 2, mixWeight: 2 },
+    { sku: 'KC-PLT-DIN', name: 'Dinner plate', category: 'Tableware', bom: [{ componentId: 'clay', qty: 2.4 }, { componentId: 'glaze', qty: 3.5 }, { componentId: 'fire', qty: 1.6 }, { componentId: 'wrap', qty: 2 }], labourMinutes: 27, wholesale: 38, msrp: 76, dtcPrice: 78, caseSize: 4, moq: 4, mixWeight: 1 },
+    { sku: 'KC-SPR', name: 'Spoon rest', category: 'Kitchen', bom: [{ componentId: 'clay', qty: 0.5 }, { componentId: 'glaze', qty: 1 }, { componentId: 'fire', qty: 0.5 }, { componentId: 'wrap', qty: 1 }], labourMinutes: 8, wholesale: 12, msrp: 24, dtcPrice: 24, caseSize: 4, moq: 4, mixWeight: 2 },
+    { sku: 'KC-BUD', name: 'Bud vase', category: 'Decor', bom: [{ componentId: 'clay', qty: 0.7 }, { componentId: 'glaze', qty: 1.5 }, { componentId: 'fire', qty: 0.7 }, ...pack], labourMinutes: 14, wholesale: 20, msrp: 40, dtcPrice: 38, caseSize: 2, moq: 2, mixWeight: 2 },
   ])
-  return { id: 'kiln-clay', name: 'Kiln & Clay Ceramics', blurb: 'Wheel-thrown stoneware. Labour is most of the cost, so Faire fees bite hard.', settings: s, components, products, tier: { swaps: { box: 'plainbox' }, labourCut: 0.25, packaging: null } }
+  return { id: 'kiln-clay', name: 'Kiln & Clay Ceramics', blurb: 'Wheel-thrown stoneware. Labour is most of the cost: at today\'s prices mugs lose money on Faire and barely clear direct wholesale.', settings: s, components, products, tier: { swaps: { box: 'plainbox' }, labourCut: 0.25, packaging: null } }
 }
 
 function stationery(): SampleBrand {

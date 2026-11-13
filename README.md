@@ -23,3 +23,10 @@ npm test
 ```
 
 Live: https://wholesale-pricing-eight.vercel.app
+
+## Known gaps
+
+- Faire's bulk upload accepts only its own .xlsx template, so the Faire price file is a CSV to copy into that template rather than a direct upload.
+- Only the first worksheet of an .xlsx is read; old .xls and Numbers files need exporting to CSV.
+- Shopify variants without a SKU are keyed by handle and option value; cost sheets must use the same keys.
+- Prices are USD only.
