@@ -100,7 +100,7 @@ function PendingFile({ x, onChange, onCancel, onImport }: { x: Pending; onChange
               <option value="">Not in this file</option>
               {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
             </select>
-            <small className="sample">{x.map[f] !== undefined ? `e.g. ${x.table[1]?.[x.map[f]!] ?? ''}` : ''}</small>
+            <small className="sample">{x.map[f] !== undefined ? (ex => ex ? `e.g. ${ex}` : 'empty in the first rows')(x.table.slice(1, 50).map(r => r[x.map[f]!]?.trim()).find(Boolean)) : ''}</small>
           </label>
         ))}
       </div>

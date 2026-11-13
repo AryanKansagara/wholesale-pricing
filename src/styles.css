@@ -688,6 +688,7 @@ td.neg { color: var(--bad); font-weight: 600; }
   .cover-terms, .form-lines, .rat-grid { grid-template-columns: 1fr; }
   .sheet-page { padding: 24px; min-height: 0; }
   .cover h1 { font-size: 44px; }
+  .of-table { display: block; overflow-x: auto; }
   .snap-list form input { min-width: 0; }
 }
 td.mono, td .mono { white-space: nowrap; }
