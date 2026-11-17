@@ -280,7 +280,7 @@ export function Footer() {
       <div className="footer-inner">
         <div className="footer-brand"><Monogram /> <strong>Wholesale Ready</strong></div>
         <nav className="footer-nav" aria-label="Footer"><Link href="/app">Projects</Link><Link href="/docs">Docs</Link><Link href="/settings">Settings</Link></nav>
-        <p>Built by Aryan Kansagara. Independent project, not affiliated with Faire.</p>
+        <p>Built by Aryan Kansagara.</p>
         <p className="muted small">Sample brands are synthetic. Your files are parsed in your browser and stored on this device unless you sign in to sync. Fees change: check the dated table in the docs.</p>
       </div>
     </footer>
