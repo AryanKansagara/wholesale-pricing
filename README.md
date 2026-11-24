@@ -24,6 +24,18 @@ npm test
 
 Live: https://wholesale-pricing-eight.vercel.app
 
+## Tests and CI
+
+```bash
+npm test                              # unit tests (node --test, src/**/*.test.ts)
+npx playwright install chromium       # once; add --with-deps on a bare Linux box
+npm run test:e2e                      # builds, serves the production build with `vite preview` on port 4390, runs Playwright (Chromium)
+```
+
+The E2E suite lives in `e2e/` and drives the production build signed out: it opens a sample, edits a price and a fee, imports a catalog and a cost sheet, downloads the Faire and Shopify price files and the line sheet, feeds it bad files, and reloads to check that state persisted. Every request to another origin is aborted (only the web-font hosts are tolerated), and any uncaught page error fails the test. Its fixtures are `e2e/fixtures/` plus the existing real-layout files in `src/engine/fixtures/`. Playwright traces and the HTML report are written to `test-results/` and `playwright-report/` when a run fails.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs `npm ci`, `npm run build`, `npm test` and `npm run test:e2e` on Node 22 for every pull request and push to `main`, with read-only repository permissions.
+
 ## Known gaps
 
 - Faire's bulk upload accepts only its own .xlsx template, so the Faire price file is a CSV to copy into that template rather than a direct upload.
