@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { mergeImport } from './engine/catalog.ts'
 import { detectKind, FIELD_LABEL, guessMapping, KIND_FIELDS, KIND_LABEL, parseCsv, REQUIRED, validate, type Field, type Kind, type Mapping } from './engine/csv.ts'
 import type { TabProps } from './Project.tsx'
-import { readXlsx } from './engine/xlsx.ts'
+import { openXlsx, type Workbook } from './engine/xlsx.ts'
 import { uuid } from './store.ts'
 import { download, fmtDate, go, Link, toast } from './ui.tsx'
 
@@ -12,7 +12,9 @@ export const TEMPLATES = {
   'generic': 'SKU,Name,Category,Wholesale,MSRP,Price,MOQ,Case size\nCANDLE-8,Black Fig 8 oz candle,Candles,16,32,34,4,4\n',
 }
 
-interface Pending { fileName: string; table: string[][]; kind: Kind; map: Mapping }
+/** An .xlsx that has been opened: which worksheet is chosen (null until the user picks one) and whether hidden ones are offered. */
+interface Book { wb: Workbook; sheet: number | null; showHidden: boolean; loading: boolean }
+interface Pending { id: string; fileName: string; table: string[][]; kind: Kind; map: Mapping; book?: Book }
 
 export default function Import({ p, update }: TabProps) {
   const [pending, setPending] = useState<Pending[]>([])
@@ -24,7 +26,7 @@ export default function Import({ p, update }: TabProps) {
     for (const f of [...files]) {
       if (f.size > 20_000_000) { toast(`${f.name} is over 20 MB; split it first.`, { tone: 'error' }); continue }
       if (/\.xlsx$/i.test(f.name)) {
-        try { next.push(prepTable(f.name, await readXlsx(await f.arrayBuffer()))) } catch (e) { toast(`${f.name}: ${(e as Error).message} Save it as CSV and try again.`, { tone: 'error' }) }
+        try { next.push(await prepBook(f.name, await openXlsx(await f.arrayBuffer()))) } catch (e) { toast(`${f.name}: ${(e as Error).message} Save it as CSV and try again.`, { tone: 'error' }) }
         continue
       }
       if (!/\.(csv|tsv|txt)$/i.test(f.name)) { toast(`${f.name}: use a CSV or .xlsx file (old .xls and Numbers files: export as CSV).`, { tone: 'error' }); continue }
@@ -32,10 +34,37 @@ export default function Import({ p, update }: TabProps) {
     }
     setPending(x => [...x, ...next])
   }
-  const prep = (fileName: string, text: string): Pending => prepTable(fileName, parseCsv(text))
-  const prepTable = (fileName: string, table: string[][]): Pending => {
+  const prep = (fileName: string, text: string): Pending => ({ id: uuid(), fileName, ...prepTable(parseCsv(text)) })
+  const prepTable = (table: string[][]) => {
     const kind = detectKind(table[0] ?? [])
-    return { fileName, table, kind, map: guessMapping(table[0] ?? [], kind) }
+    return { table, kind, map: guessMapping(table[0] ?? [], kind) }
+  }
+  const patch = (id: string, f: (x: Pending) => Pending) => setPending(ps => ps.map(x => x.id === id ? f(x) : x))
+
+  // One worksheet with data is used straight away. With several, the first is used only when it is a recognised export
+  // (a Faire file opens on its Products sheet as before); otherwise nothing is read until the user chooses.
+  const prepBook = async (fileName: string, wb: Workbook): Promise<Pending> => {
+    const withData = wb.sheets.map((s, i) => ({ s, i })).filter(x => x.s.rows > 0)
+    const visible = withData.filter(x => !x.s.hidden)
+    if (!withData.length) throw new Error('Every worksheet in this workbook is empty.')
+    const base: Pending = { id: uuid(), fileName, table: [], kind: 'generic', map: {}, book: { wb, sheet: null, showHidden: !visible.length, loading: false } }
+    if (!visible.length) return base
+    const first = visible[0].i
+    const table = await wb.read(first)
+    if (visible.length > 1 && detectKind(table[0] ?? []) === 'generic') return base
+    return { ...base, ...prepTable(table), book: { ...base.book!, sheet: first } }
+  }
+  // Choosing a sheet drops everything read from the previous one, then detects and maps the new one from scratch.
+  const chooseSheet = async (id: string, wb: Workbook, sheet: number | null) => {
+    patch(id, x => ({ ...x, table: [], kind: 'generic', map: {}, book: { ...x.book!, sheet, loading: sheet !== null } }))
+    if (sheet === null) return
+    try {
+      const table = await wb.read(sheet)
+      patch(id, x => x.book?.sheet === sheet ? { ...x, ...prepTable(table), book: { ...x.book, loading: false } } : x)
+    } catch (e) {
+      patch(id, x => x.book?.sheet === sheet ? { ...x, book: { ...x.book, sheet: null, loading: false } } : x)
+      toast(`${wb.sheets[sheet].name}: ${(e as Error).message}`, { tone: 'error' })
+    }
   }
 
   return (
@@ -52,15 +81,23 @@ export default function Import({ p, update }: TabProps) {
         <button type="button" className="btn ghost sm" disabled={!paste.trim()} onClick={() => { setPending(x => [...x, prep('Pasted text', paste)]); setPaste('') }}>Read pasted text</button>
       </details>
 
-      {pending.map((x, i) => (
-        <PendingFile key={x.fileName + i} x={x}
-          onChange={nx => setPending(ps => ps.map((y, j) => j === i ? nx : y))}
-          onCancel={() => setPending(ps => ps.filter((_, j) => j !== i))}
+      {pending.map(x => (
+        <PendingFile key={x.id} x={x}
+          onChange={nx => patch(x.id, () => nx)}
+          onSheet={sheet => void chooseSheet(x.id, x.book!.wb, sheet)}
+          onShowHidden={show => {
+            // Hiding the sheets again also drops a hidden sheet that was chosen.
+            const chosen = x.book!.sheet !== null && x.book!.wb.sheets[x.book!.sheet].hidden
+            if (!show && chosen) void chooseSheet(x.id, x.book!.wb, null)
+            patch(x.id, y => ({ ...y, book: { ...y.book!, showHidden: show } }))
+          }}
+          onCancel={() => setPending(ps => ps.filter(y => y.id !== x.id))}
           onImport={rows => {
             const m = mergeImport(p.products, p.components, x.kind, rows, p.settings, uuid)
             const before = { products: p.products, components: p.components, imports: p.imports }
-            update({ products: m.products, components: m.components, imports: [...p.imports, { id: uuid(), kind: x.kind, fileName: x.fileName, rows: rows.length, skipped: x.table.length - 1 - rows.length, at: Date.now() }] })
-            setPending(ps => ps.filter((_, j) => j !== i))
+            const sheetName = x.book && x.book.wb.sheets.length > 1 && x.book.sheet !== null ? x.book.wb.sheets[x.book.sheet].name : ''
+            update({ products: m.products, components: m.components, imports: [...p.imports, { id: uuid(), kind: x.kind, fileName: sheetName ? `${x.fileName} (${sheetName})` : x.fileName, rows: rows.length, skipped: x.table.length - 1 - rows.length, at: Date.now() }] })
+            setPending(ps => ps.filter(y => y.id !== x.id))
             toast(`${KIND_LABEL[x.kind]}: ${m.added} added, ${m.updated} updated`, { undo: () => update(before), action: pending.length === 1 ? { label: 'View catalog', run: () => go(`/app/p/${p.id}`) } : undefined })
           }} />
       ))}
@@ -77,11 +114,22 @@ export default function Import({ p, update }: TabProps) {
   )
 }
 
-function PendingFile({ x, onChange, onCancel, onImport }: { x: Pending; onChange(p: Pending): void; onCancel(): void; onImport(rows: ReturnType<typeof validate>['rows']): void }) {
+function PendingFile({ x, onChange, onSheet, onShowHidden, onCancel, onImport }: { x: Pending; onChange(p: Pending): void; onSheet(sheet: number | null): void; onShowHidden(show: boolean): void; onCancel(): void; onImport(rows: ReturnType<typeof validate>['rows']): void }) {
   const headers = x.table[0] ?? []
   const v = useMemo(() => validate(x.table, x.kind, x.map), [x])
   const errors = v.issues.filter(i => i.level === 'error'), warns = v.issues.filter(i => i.level === 'warn')
   const fields = KIND_FIELDS[x.kind]
+  const picker = x.book && x.book.wb.sheets.length > 1 ? x.book : null
+  const offered = x.book ? x.book.wb.sheets.filter(s => s.rows > 0 && (!s.hidden || x.book!.showHidden)).length : 0
+  // Until a worksheet is chosen (or while it loads) there is nothing to detect, map or import.
+  if (x.book && (x.book.sheet === null || x.book.loading)) return (
+    <div className="pending">
+      <div className="row between wrap gap"><div><b>{x.fileName}</b> <span className="muted small">{x.book.wb.sheets.length} worksheets</span></div></div>
+      <SheetPicker book={x.book} onSheet={onSheet} onShowHidden={onShowHidden} />
+      <p className="report warn" role="status">{x.book.loading ? 'Reading the worksheet…' : offered > 1 ? 'This workbook has more than one worksheet with data. Choose the one to import.' : offered === 1 ? 'The only worksheet with data is hidden. Choose it to import.' : 'No visible worksheet has data. Show the hidden sheets to import one.'}</p>
+      <div className="row gap-sm end"><button type="button" className="btn ghost sm" onClick={onCancel}>Cancel</button></div>
+    </div>
+  )
   return (
     <div className="pending">
       <div className="row between wrap gap">
@@ -92,6 +140,7 @@ function PendingFile({ x, onChange, onCancel, onImport }: { x: Pending; onChange
           </select>
         </label>
       </div>
+      {picker && <SheetPicker book={picker} onSheet={onSheet} onShowHidden={onShowHidden} />}
       <div className="mapping">
         {fields.map(f => (
           <label key={f} className="map-row">
@@ -117,6 +166,23 @@ function PendingFile({ x, onChange, onCancel, onImport }: { x: Pending; onChange
         <button type="button" className="btn ghost sm" onClick={onCancel}>Cancel</button>
         <button type="button" className="btn primary sm" disabled={!v.rows.length} onClick={() => onImport(v.rows)}>Import {v.rows.length} rows</button>
       </div>
+    </div>
+  )
+}
+
+function SheetPicker({ book, onSheet, onShowHidden }: { book: Book; onSheet(sheet: number | null): void; onShowHidden(show: boolean): void }) {
+  const { sheets } = book.wb
+  const hiddenWithData = sheets.filter(s => s.hidden && s.rows > 0).length
+  const label = (s: (typeof sheets)[number]) => `${s.name}${s.hidden ? ' (hidden)' : ''} · ${s.unreadable ? 'cannot be read' : s.rows === 0 ? 'empty' : `${s.rows - 1} rows`}`
+  return (
+    <div className="row between wrap gap">
+      <label className="ctl inline">Worksheet
+        <select value={book.sheet ?? ''} onChange={e => onSheet(e.target.value === '' ? null : Number(e.target.value))}>
+          {book.sheet === null && <option value="">Choose a worksheet…</option>}
+          {sheets.map((s, i) => (!s.hidden || book.showHidden) && <option key={i} value={i} disabled={s.unreadable || s.rows === 0}>{label(s)}</option>)}
+        </select>
+      </label>
+      {hiddenWithData > 0 && <label className="check small"><input type="checkbox" checked={book.showHidden} onChange={e => onShowHidden(e.target.checked)} /> Show {hiddenWithData} hidden {hiddenWithData === 1 ? 'sheet' : 'sheets'}</label>}
     </div>
   )
 }
