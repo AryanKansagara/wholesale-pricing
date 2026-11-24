@@ -43,9 +43,10 @@ export default function Docs() {
         <ol>
           <li>In the Faire brand portal, open <b>Products</b>.</li>
           <li>Use <b>Bulk edit</b> (or <b>Export</b>) to download your product spreadsheet.</li>
-          <li>Faire gives you an Excel (.xlsx) file. Drop it on the Import tab as it is; the first sheet is read in your browser. A CSV saved from it works too.</li>
+          <li>Faire gives you an Excel (.xlsx) file. Drop it on the Import tab as it is; it is read in your browser. A CSV saved from it works too.</li>
         </ol>
         <p>We read <code>Product Name (English)</code>, <code>SKU</code>, <code>Wholesale Price (USD)</code>, <code>Retail Price (USD)</code>, <code>Minimum Order Quantity</code> and <code>Case Size</code>, and tolerate the asterisks Faire puts on required columns.</p>
+        <p><b>Workbooks with several sheets.</b> A workbook is read one worksheet at a time. A workbook with a single sheet of data is imported as it is, and so is one whose first visible sheet with data is a Shopify, Etsy, Faire or cost-sheet layout. Otherwise the Import tab lists the visible sheets with their row counts and waits for you to choose one. Empty sheets cannot be chosen, and hidden sheets are listed only if you tick <b>Show hidden sheets</b>. Format detection and column mapping run again whenever you change the sheet, and the import log records the sheet's name. To bring in two sheets from one workbook, drop the file again and choose the other sheet.</p>
       </section>
 
       <section id="costs">
